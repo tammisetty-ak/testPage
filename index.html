@@ -1,0 +1,139 @@
+<div id="app">
+    <form id="upload-form">
+        <input type="file" name="file" required />
+        <input type="submit" value="Upload" />
+    </form>
+    <table>
+    <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>File</th>
+        <th>Actions</th>
+    </tr>
+ 
+    <tr v-for="file in files">
+        <td>{{ file.id }}</td>
+        <td>{{ file.name }}</td>
+        <td>
+        <a v-bind:href="file.url" v-bind:download="file.name" onclick="downloadFile();">Download</a>
+        </td>
+        <td>
+            [delete button here]
+        </td>
+    </tr>
+</table>
+ 
+</div>
+<script src="vue.min.js"></script>
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  // import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.5/firebase-app.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.0/firebase-app.js";
+ 
+import { getStorage, ref as stRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.1.0/firebase-storage.js";
+ 
+import { getDatabase, ref as dbRef, push, set, onValue } from "https://www.gstatic.com/firebasejs/9.1.0/firebase-database.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyCQ9fIdKy39Sr16_Exx07_erv2IUFvzvmU",
+    authDomain: "upload-demo-38404.firebaseapp.com",
+    projectId: "upload-demo-38404",
+    storageBucket: "upload-demo-38404.appspot.com",
+    messagingSenderId: "594853936968",
+    appId: "1:594853936968:web:23c5108d5997fd4ad97d7d"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const storage = getStorage(app);
+  const database = getDatabase();
+  const databaseReference = dbRef(database, "files");
+  var vueApp = new Vue({
+    el: "#app",
+    data: {
+        files: []
+    },
+    // [updated event goes here]
+});
+
+  onValue(databaseReference, function (snapshot) {
+    snapshot.forEach(function (childSnapshot) {
+        const value = childSnapshot.val();
+ 
+        const storageRefDownload = stRef(storage, "files/" + value.name);
+        getDownloadURL(storageRefDownload).then(function (url) {
+            vueApp.files.push({
+                "id": childSnapshot.key,
+                "name": value.name,
+                "url": url
+            });
+        });
+    });
+});
+
+  window.addEventListener("load", function () {
+        document.getElementById("upload-form").addEventListener("submit", function () {
+            event.preventDefault();
+            var form = event.target;
+ 
+            var file = form.file.files[0];
+            console.log(file);
+            const storageRef = stRef(storage, "files/" + file.name);
+ 
+            uploadBytes(storageRef, file).then(function (snapshot) {
+            var newFileRef = push(databaseReference);
+ 
+            set(newFileRef, {
+                "name": file.name
+                });
+            });
+        });
+    });
+  function downloadFile() {
+    // prevent default href action
+    event.preventDefault();
+ 
+    // get URL from href
+    var anchor = event.target;
+    var url = anchor.getAttribute("href");
+ 
+    // get blob data
+    const xhr = new XMLHttpRequest();
+    xhr.responseType = "blob";
+    xhr.onload = function (event) {
+        const blob = xhr.response;
+ 
+        // get clickable URL of blob data
+        const blogUrl = window.URL.createObjectURL(blob);
+ 
+        // replace href with new blob value
+        anchor.setAttribute("href", blogUrl);
+ 
+        // remove the onclick listener
+        anchor.removeAttribute("onclick");
+ 
+        // download the file
+        anchor.click();
+ 
+        // free up the memory
+        window.URL.revokeObjectURL(blogUrl);
+    };
+    xhr.open("GET", url);
+    xhr.send();
+}
+ 
+// make the function global so it can be accessible from anchor tag onclick
+window.downloadFile = downloadFile;
+</script>
+<style>
+    table, th, td {
+        border: 1px solid black;
+        border-collapse: collapse;
+    }
+    th, td {
+        padding: 25px;
+    }
+</style>
